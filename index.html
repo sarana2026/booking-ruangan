@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistem Booking Pro V4 - Fixed</title>
+    <title>Sistem Booking Pro V4.1 - Full Cloud Sync</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <style>
         :root { --primary: #2c3e50; --secondary: #3498db; --success: #27ae60; --danger: #e74c3c; --light: #f4f7f6; }
@@ -26,7 +26,7 @@
 <body>
 
     <nav class="navbar">
-        <strong>E-BOOKING SYSTEM V4.1</strong>
+        <strong>E-BOOKING SYSTEM V4.1 (CLOUD)</strong>
         <div>
             <button onclick="showSection('user')" class="btn btn-primary">🏠 Form Responden</button>
             <button onclick="showSection('login')" class="btn btn-primary">🔐 Portal Admin</button>
@@ -58,9 +58,8 @@
                 </div>
 
                 <div style="margin-bottom: 15px;">
-                    <button class="btn btn-primary" onclick="renderTable('Semua')">Semua Data</button>
-                    <button class="btn btn-success" onclick="exportExcel()">📥 Export Excel (CSV)</button>
-                    <button class="btn btn-success" style="float:right;" onclick="openEdit('baru')">+ Tambah Manual</button>
+                    <button class="btn btn-primary" onclick="renderTable()">🔄 Segarkan Data</button>
+                    <button class="btn btn-success" style="float:right;" onclick="openModalTambah()">+ Tambah Manual</button>
                 </div>
 
                 <table>
@@ -82,16 +81,7 @@
         </div>
     </div>
 
-    <!-- MODAL LOG -->
-    <div id="modal-log" class="modal">
-        <div class="card" style="width:600px;">
-            <h3>Log Aktivitas Sistem</h3>
-            <div id="log-box" class="log-list"></div>
-            <button class="btn btn-danger" style="margin-top:10px;" onclick="closeAll()">Tutup</button>
-        </div>
-    </div>
-
-    <!-- MODAL PENGATURAN -->
+    <!-- MODAL SETTINGS -->
     <div id="modal-settings" class="modal">
         <div class="card" style="width:400px;">
             <h3>Pengaturan Akun Admin</h3>
@@ -102,31 +92,26 @@
         </div>
     </div>
 
-    <!-- MODAL EDIT -->
-    <div id="modal-edit" class="modal">
-        <div class="card" style="width:500px;">
-            <h3 id="edit-title">Edit Data</h3>
-            <input type="hidden" id="edit_id">
-            <input type="text" id="edit_nama" placeholder="Nama">
-            <input type="text" id="edit_instansi" placeholder="Instansi">
-            <input type="text" id="edit_acara" placeholder="Acara">
-            <select id="edit_lokasi"><option value="Aula">Aula</option><option value="Ruang Pertemuan">Ruang Pertemuan</option></select>
-            <input type="text" id="edit_tgl" placeholder="Pilih Tanggal">
-            <button class="btn btn-success" onclick="saveData()">Simpan</button>
-            <button class="btn btn-danger" onclick="closeAll()">Batal</button>
+    <!-- MODAL LOG -->
+    <div id="modal-log" class="modal">
+        <div class="card" style="width:600px;">
+            <h3>Log Aktivitas Sistem</h3>
+            <div id="log-box" class="log-list"></div>
+            <button class="btn btn-danger" style="margin-top:10px;" onclick="closeAll()">Tutup</button>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script>
-        // 1. INISIALISASI DATA DARI LOCALSTORAGE
-        let bookings = JSON.parse(localStorage.getItem('db_bookings')) || [];
+        // MASUKKAN URL WEB APP ANDA DI SINI
+        const scriptURL = 'https://script.google.com/macros/s/AKfycbz1M_bJ_weJal49mdNqe3-IS681hgYlHZeGO8isxUp9_M_yxO1EGdQdEF8K4WkPr94W2w/exec';
+
+        let bookings = []; 
         let logs = JSON.parse(localStorage.getItem('db_logs')) || ["[System] Ready."];
         let admin = JSON.parse(localStorage.getItem('db_admin')) || {u:"admin", p:"123"};
-        let kalender, kalenderEdit;
+        let kalender;
 
         function updateStorage() {
-            localStorage.setItem('db_bookings', JSON.stringify(bookings));
             localStorage.setItem('db_logs', JSON.stringify(logs));
             localStorage.setItem('db_admin', JSON.stringify(admin));
         }
@@ -134,118 +119,118 @@
         function addLog(m) {
             logs.unshift(`[${new Date().toLocaleTimeString()}] ${m}`);
             updateStorage();
-            document.getElementById('log-box').innerHTML = logs.join("<br>");
+            const logBox = document.getElementById('log-box');
+            if(logBox) logBox.innerHTML = logs.join("<br>");
         }
 
         function initCalendar() {
-            const lok = document.getElementById('u_lokasi').value;
-            let disabled = [];
-            bookings.filter(b => b.lokasi === lok).forEach(b => {
-                if(b.tgl.includes(" to ")) {
-                    let r = b.tgl.split(" to ");
-                    let s = new Date(r[0]), e = new Date(r[1]);
-                    while(s <= e) { disabled.push(s.toISOString().split('T')[0]); s.setDate(s.getDate()+1); }
-                } else { disabled.push(b.tgl); }
-            });
-            if(kalender) kalender.destroy();
-            kalender = flatpickr("#u_tanggal", { mode: "range", disable: disabled, allowInput: true });
-            kalenderEdit = flatpickr("#edit_tgl", { mode: "range" });
+            // Kalender dasar
+            kalender = flatpickr("#u_tanggal", { mode: "range", allowInput: true });
         }
 
-        // FUNGSI SIMPAN RESPONDEN (SUDAH DIPERBAIKI)
-      async function simpanBooking() {
-    const t = document.getElementById('u_tanggal').value;
-    const n = document.getElementById('u_nama').value;
-    const scriptURL = 'https://script.google.com/macros/s/AKfycbwYnea84-ExeEd4Y5sT37BVwKh-gX0PzgGlZUMucyoe8_Sl94TJX_sV_7AivmynnYbm/exec'; // <-- Ganti ini!
+        // 1. FUNGSI SIMPAN (DIGUNAKAN RESPONDEN & TAMBAH MANUAL ADMIN)
+        async function simpanBooking() {
+            const n = document.getElementById('u_nama').value;
+            const t = document.getElementById('u_tanggal').value;
 
-    if(!t || !n) return alert("Lengkapi data!");
+            if(!t || !n) return alert("Nama dan Tanggal wajib diisi!");
 
-    const d = { 
-        nama: n, 
-        instansi: document.getElementById('u_instansi').value, 
-        acara: document.getElementById('u_acara').value, 
-        lokasi: document.getElementById('u_lokasi').value, 
-        tgl: t 
-    };
+            const d = { 
+                nama: n, 
+                instansi: document.getElementById('u_instansi').value, 
+                acara: document.getElementById('u_acara').value, 
+                lokasi: document.getElementById('u_lokasi').value, 
+                tgl: t 
+            };
 
-    try {
-        // Mengirim data ke Google Sheets
-        await fetch(scriptURL, {
-            method: 'POST',
-            body: JSON.stringify(d)
-        });
-
-        // Tetap simpan di LocalStorage untuk log lokal
-        bookings.push({...d, id: Date.now()});
-        addLog(`Responden ${n} berhasil mengirim data ke Cloud.`);
-        updateStorage();
-        
-        alert("Berhasil! Data telah tersimpan di Google Sheets.");
-        location.reload();
-    } catch (error) {
-        console.error('Error!', error.message);
-        alert("Terjadi kesalahan saat mengirim ke Google Sheets.");
-    }
-}
-        async function renderTable() {
-    const b = document.getElementById('table-body');
-    b.innerHTML = "<tr><td colspan='6'>Memuat data dari Google Sheets...</td></tr>";
-    
-    const scriptURL = 'https://script.google.com/macros/s/AKfycbwYnea84-ExeEd4Y5sT37BVwKh-gX0PzgGlZUMucyoe8_Sl94TJX_sV_7AivmynnYbm/exec';
-
-    try {
-        const response = await fetch(scriptURL);
-        const dataSheets = await response.json();
-        
-        b.innerHTML = ""; // Bersihkan pesan memuat
-        dataSheets.reverse().forEach(x => { // Data terbaru di atas
-            b.innerHTML += `<tr>
-                <td>${x.nama}</td>
-                <td>${x.instansi}</td>
-                <td>${x.acara}</td>
-                <td>${x.lokasi}</td>
-                <td>${x.tgl}</td>
-                <td><button class="btn btn-danger" onclick="alert('Hapus langsung di Google Sheets')">Hapus</button></td>
-            </tr>`;
-        });
-    } catch (error) {
-        b.innerHTML = "<tr><td colspan='6'>Gagal memuat data.</td></tr>";
-    }
-}
-       function doLogin() {
-    if(document.getElementById('l_user').value === admin.u && document.getElementById('l_pass').value === admin.p) {
-        closeAll(); 
-        document.getElementById('section-user').style.display='none'; 
-        document.getElementById('section-admin').style.display='block';
-        renderTable(); // Ini akan memanggil data dari Google Sheets
-        addLog("Admin Login.");
-    } else alert("Username/Password Salah!");
-}
-
-        function hapus(id) {
-            if(confirm("Hapus data ini?")) {
-                bookings = bookings.filter(x => x.id !== id);
-                addLog("Admin menghapus data.");
-                updateStorage();
-                renderTable('Semua');
+            try {
+                await fetch(scriptURL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(d) });
+                addLog(`Data baru berhasil dikirim ke Cloud: ${n}`);
+                alert("Berhasil! Data telah tersimpan di Google Sheets.");
+                location.reload();
+            } catch (error) {
+                alert("Gagal mengirim data. Periksa koneksi.");
             }
         }
-function saveSettings() {
-    const userBaru = document.getElementById('set_user').value;
-    const passBaru = document.getElementById('set_pass').value;
 
-    if (userBaru && passBaru) {
-        admin.u = userBaru;
-        admin.p = passBaru;
-        updateStorage(); // Menyimpan ke LocalStorage secara permanen
-        addLog("Admin mengubah kredensial akun.");
-        alert("Username dan Password berhasil diperbarui!");
-        closeAll();
-        location.reload(); // Memuat ulang halaman agar data baru aktif
-    } else {
-        alert("Harap isi Username dan Password!");
-    }
-}
+        // 2. FUNGSI RENDER TABEL (TARIK DATA DARI CLOUD)
+        async function renderTable() {
+            const b = document.getElementById('table-body');
+            b.innerHTML = "<tr><td colspan='6'>Memuat data dari Google Sheets...</td></tr>";
+            
+            try {
+                const response = await fetch(scriptURL);
+                const dataSheets = await response.json();
+                bookings = dataSheets; // Simpan ke variabel global untuk kalender jika perlu
+                
+                b.innerHTML = ""; 
+                dataSheets.reverse().forEach((x, index) => {
+                    // rowId adalah urutan baris asli di Sheets
+                    const rowId = dataSheets.length - index; 
+                    b.innerHTML += `<tr>
+                        <td>${x.nama}</td>
+                        <td>${x.instansi}</td>
+                        <td>${x.acara}</td>
+                        <td>${x.lokasi}</td>
+                        <td>${x.tgl}</td>
+                        <td>
+                            <button class="btn btn-primary" onclick="alert('Gunakan Google Sheets langsung untuk edit yang lebih aman')">Edit</button>
+                            <button class="btn btn-danger" onclick="hapusData(${rowId})">Hapus</button>
+                        </td>
+                    </tr>`;
+                });
+            } catch (error) {
+                b.innerHTML = "<tr><td colspan='6'>Gagal sinkronisasi data. Pastikan doGet sudah di-deploy.</td></tr>";
+            }
+        }
+
+        // 3. FUNGSI HAPUS DATA
+        async function hapusData(rowIndex) {
+            if (confirm("Hapus data di baris " + rowIndex + "?")) {
+                try {
+                    await fetch(scriptURL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        body: JSON.stringify({ action: "delete", row: rowIndex + 1 })
+                    });
+                    alert("Instruksi hapus dikirim! (Cek Sheets jika tidak hilang)");
+                    renderTable();
+                } catch (e) {
+                    alert("Gagal menghapus.");
+                }
+            }
+        }
+
+        function doLogin() {
+            const u = document.getElementById('l_user').value;
+            const p = document.getElementById('l_pass').value;
+            if(u === admin.u && p === admin.p) {
+                closeAll(); 
+                document.getElementById('section-user').style.display='none'; 
+                document.getElementById('section-admin').style.display='block';
+                renderTable();
+                addLog("Admin Login.");
+            } else alert("Akses Ditolak!");
+        }
+
+        function saveSettings() {
+            const userBaru = document.getElementById('set_user').value;
+            const passBaru = document.getElementById('set_pass').value;
+            if (userBaru && passBaru) {
+                admin.u = userBaru;
+                admin.p = passBaru;
+                updateStorage();
+                alert("Akun diperbarui! SIlakan login ulang.");
+                location.reload();
+            }
+        }
+
+        function openModalTambah() {
+            // Mengarahkan admin kembali ke form responden namun tetap di halaman admin
+            document.getElementById('section-user').scrollIntoView();
+            alert("Silakan isi formulir di atas untuk tambah manual.");
+        }
+
         function openModal(id) { document.getElementById(id).style.display = 'flex'; }
         function closeAll() { document.querySelectorAll('.modal').forEach(m => m.style.display='none'); }
         function showSection(s) { if(s === 'login') openModal('section-login'); else location.reload(); }
