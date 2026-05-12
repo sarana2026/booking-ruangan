@@ -211,7 +211,22 @@
                 renderTable('Semua');
             }
         }
+function saveSettings() {
+    const userBaru = document.getElementById('set_user').value;
+    const passBaru = document.getElementById('set_pass').value;
 
+    if (userBaru && passBaru) {
+        admin.u = userBaru;
+        admin.p = passBaru;
+        updateStorage(); // Menyimpan ke LocalStorage secara permanen
+        addLog("Admin mengubah kredensial akun.");
+        alert("Username dan Password berhasil diperbarui!");
+        closeAll();
+        location.reload(); // Memuat ulang halaman agar data baru aktif
+    } else {
+        alert("Harap isi Username dan Password!");
+    }
+}
         function openModal(id) { document.getElementById(id).style.display = 'flex'; }
         function closeAll() { document.querySelectorAll('.modal').forEach(m => m.style.display='none'); }
         function showSection(s) { if(s === 'login') openModal('section-login'); else location.reload(); }
