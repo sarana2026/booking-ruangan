@@ -187,21 +187,40 @@
         alert("Terjadi kesalahan saat mengirim ke Google Sheets.");
     }
 }
-        function renderTable(f) {
-            const b = document.getElementById('table-body'); b.innerHTML = "";
-            let data = f === 'Semua' ? bookings : bookings.filter(x => x.lokasi === f);
-            data.forEach(x => {
-                b.innerHTML += `<tr><td>${x.nama}</td><td>${x.instansi}</td><td>${x.acara}</td><td>${x.lokasi}</td><td>${x.tgl}</td>
-                <td><button class="btn btn-primary" onclick="openEdit(${x.id})">Edit</button><button class="btn btn-danger" onclick="hapus(${x.id})">Hapus</button></td></tr>`;
-            });
-        }
+        async function renderTable() {
+    const b = document.getElementById('table-body');
+    b.innerHTML = "<tr><td colspan='6'>Memuat data dari Google Sheets...</td></tr>";
+    
+    const scriptURL = 'https://script.google.com/macros/s/AKfycbwYnea84-ExeEd4Y5sT37BVwKh-gX0PzgGlZUMucyoe8_Sl94TJX_sV_7AivmynnYbm/exec';
 
-        function doLogin() {
-            if(document.getElementById('l_user').value === admin.u && document.getElementById('l_pass').value === admin.p) {
-                closeAll(); document.getElementById('section-user').style.display='none'; document.getElementById('section-admin').style.display='block';
-                renderTable('Semua'); addLog("Admin Login.");
-            } else alert("Username/Password Salah!");
-        }
+    try {
+        const response = await fetch(scriptURL);
+        const dataSheets = await response.json();
+        
+        b.innerHTML = ""; // Bersihkan pesan memuat
+        dataSheets.reverse().forEach(x => { // Data terbaru di atas
+            b.innerHTML += `<tr>
+                <td>${x.nama}</td>
+                <td>${x.instansi}</td>
+                <td>${x.acara}</td>
+                <td>${x.lokasi}</td>
+                <td>${x.tgl}</td>
+                <td><button class="btn btn-danger" onclick="alert('Hapus langsung di Google Sheets')">Hapus</button></td>
+            </tr>`;
+        });
+    } catch (error) {
+        b.innerHTML = "<tr><td colspan='6'>Gagal memuat data.</td></tr>";
+    }
+}
+       function doLogin() {
+    if(document.getElementById('l_user').value === admin.u && document.getElementById('l_pass').value === admin.p) {
+        closeAll(); 
+        document.getElementById('section-user').style.display='none'; 
+        document.getElementById('section-admin').style.display='block';
+        renderTable(); // Ini akan memanggil data dari Google Sheets
+        addLog("Admin Login.");
+    } else alert("Username/Password Salah!");
+}
 
         function hapus(id) {
             if(confirm("Hapus data ini?")) {
