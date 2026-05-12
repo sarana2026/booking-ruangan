@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Booking Pro V4 - Fixed</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <style>
+        :root { --primary: #2c3e50; --secondary: #3498db; --success: #27ae60; --danger: #e74c3c; --light: #f4f7f6; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--light); margin: 0; text-align: left; }
+        .navbar { background: var(--primary); color: white; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; }
+        .container { width: 95%; max-width: 1200px; margin: 20px auto; }
+        .card { background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        input, select { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #eee; padding: 12px; text-align: left; }
+        th { background: #f4f4f4; }
+        .btn { padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; margin-right: 5px; }
+        .btn-primary { background: var(--secondary); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        .log-list { height: 300px; overflow-y: auto; background: #222; color: #0f0; padding: 15px; font-family: monospace; border-radius: 5px; }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar">
+        <strong>E-BOOKING SYSTEM V4.1</strong>
+        <div>
+            <button onclick="showSection('user')" class="btn btn-primary">🏠 Form Responden</button>
+            <button onclick="showSection('login')" class="btn btn-primary">🔐 Portal Admin</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- RESPONDEN -->
+        <div id="section-user" class="card">
+            <h2>Formulir Reservasi</h2>
+            <input type="text" id="u_nama" placeholder="Nama Peminjam">
+            <input type="text" id="u_instansi" placeholder="Nama Instansi">
+            <input type="text" id="u_acara" placeholder="Nama Acara">
+            <select id="u_lokasi" onchange="initCalendar()"><option value="Aula">Aula</option><option value="Ruang Pertemuan">Ruang Pertemuan</option></select>
+            <input type="text" id="u_tanggal" placeholder="Pilih Tanggal (1 hari atau Rentang)">
+            <button class="btn btn-success" style="width:100%;" onclick="simpanBooking()">Kirim Reservasi</button>
+        </div>
+
+        <!-- DASHBOARD ADMIN -->
+        <div id="section-admin" style="display:none;">
+            <div class="card">
+                <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom:20px;">
+                    <h2>Admin Dashboard</h2>
+                    <div>
+                        <button class="btn btn-primary" onclick="openModal('modal-log')">📋 Log Sistem</button>
+                        <button class="btn btn-primary" onclick="openModal('modal-settings')">⚙️ Pengaturan</button>
+                        <button class="btn btn-danger" onclick="location.reload()">🚪 Logout</button>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <button class="btn btn-primary" onclick="renderTable('Semua')">Semua Data</button>
+                    <button class="btn btn-success" onclick="exportExcel()">📥 Export Excel (CSV)</button>
+                    <button class="btn btn-success" style="float:right;" onclick="openEdit('baru')">+ Tambah Manual</button>
+                </div>
+
+                <table>
+                    <thead><tr><th>Peminjam</th><th>Instansi</th><th>Acara</th><th>Lokasi</th><th>Jadwal</th><th>Aksi</th></tr></thead>
+                    <tbody id="table-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- MODAL LOGIN -->
+        <div id="section-login" class="modal">
+            <div class="card" style="width:350px;">
+                <h2 style="text-align:center;">Admin Login</h2>
+                <input type="text" id="l_user" placeholder="Username">
+                <input type="password" id="l_pass" placeholder="Password">
+                <button class="btn btn-success" style="width:100%;" onclick="doLogin()">Masuk</button>
+                <button class="btn btn-danger" style="width:100%; margin-top:5px;" onclick="closeAll()">Batal</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL LOG -->
+    <div id="modal-log" class="modal">
+        <div class="card" style="width:600px;">
+            <h3>Log Aktivitas Sistem</h3>
+            <div id="log-box" class="log-list"></div>
+            <button class="btn btn-danger" style="margin-top:10px;" onclick="closeAll()">Tutup</button>
+        </div>
+    </div>
+
+    <!-- MODAL PENGATURAN -->
+    <div id="modal-settings" class="modal">
+        <div class="card" style="width:400px;">
+            <h3>Pengaturan Akun Admin</h3>
+            <label>Username Baru</label><input type="text" id="set_user">
+            <label>Password Baru</label><input type="password" id="set_pass">
+            <button class="btn btn-success" onclick="saveSettings()">Simpan</button>
+            <button class="btn btn-danger" onclick="closeAll()">Batal</button>
+        </div>
+    </div>
+
+    <!-- MODAL EDIT -->
+    <div id="modal-edit" class="modal">
+        <div class="card" style="width:500px;">
+            <h3 id="edit-title">Edit Data</h3>
+            <input type="hidden" id="edit_id">
+            <input type="text" id="edit_nama" placeholder="Nama">
+            <input type="text" id="edit_instansi" placeholder="Instansi">
+            <input type="text" id="edit_acara" placeholder="Acara">
+            <select id="edit_lokasi"><option value="Aula">Aula</option><option value="Ruang Pertemuan">Ruang Pertemuan</option></select>
+            <input type="text" id="edit_tgl" placeholder="Pilih Tanggal">
+            <button class="btn btn-success" onclick="saveData()">Simpan</button>
+            <button class="btn btn-danger" onclick="closeAll()">Batal</button>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script>
+        // 1. INISIALISASI DATA DARI LOCALSTORAGE
+        let bookings = JSON.parse(localStorage.getItem('db_bookings')) || [];
+        let logs = JSON.parse(localStorage.getItem('db_logs')) || ["[System] Ready."];
+        let admin = JSON.parse(localStorage.getItem('db_admin')) || {u:"admin", p:"123"};
+        let kalender, kalenderEdit;
+
+        function updateStorage() {
+            localStorage.setItem('db_bookings', JSON.stringify(bookings));
+            localStorage.setItem('db_logs', JSON.stringify(logs));
+            localStorage.setItem('db_admin', JSON.stringify(admin));
+        }
+
+        function addLog(m) {
+            logs.unshift(`[${new Date().toLocaleTimeString()}] ${m}`);
+            updateStorage();
+            document.getElementById('log-box').innerHTML = logs.join("<br>");
+        }
+
+        function initCalendar() {
+            const lok = document.getElementById('u_lokasi').value;
+            let disabled = [];
+            bookings.filter(b => b.lokasi === lok).forEach(b => {
+                if(b.tgl.includes(" to ")) {
+                    let r = b.tgl.split(" to ");
+                    let s = new Date(r[0]), e = new Date(r[1]);
+                    while(s <= e) { disabled.push(s.toISOString().split('T')[0]); s.setDate(s.getDate()+1); }
+                } else { disabled.push(b.tgl); }
+            });
+            if(kalender) kalender.destroy();
+            kalender = flatpickr("#u_tanggal", { mode: "range", disable: disabled, allowInput: true });
+            kalenderEdit = flatpickr("#edit_tgl", { mode: "range" });
+        }
+
+        // FUNGSI SIMPAN RESPONDEN (SUDAH DIPERBAIKI)
+      async function simpanBooking() {
+    const t = document.getElementById('u_tanggal').value;
+    const n = document.getElementById('u_nama').value;
+    const scriptURL = 'https://script.google.com/macros/s/AKfycbz8IjFdQ3CPn3zJavrdl-6Oy74xFset9-dNW-kC20DPAwBGpv_iW5O112NdpmGMtzeHyw/exec'; // <-- Ganti ini!
+
+    if(!t || !n) return alert("Lengkapi data!");
+
+    const d = { 
+        nama: n, 
+        instansi: document.getElementById('u_instansi').value, 
+        acara: document.getElementById('u_acara').value, 
+        lokasi: document.getElementById('u_lokasi').value, 
+        tgl: t 
+    };
+
+    try {
+        // Mengirim data ke Google Sheets
+        await fetch(scriptURL, {
+            method: 'POST',
+            body: JSON.stringify(d)
+        });
+
+        // Tetap simpan di LocalStorage untuk log lokal
+        bookings.push({...d, id: Date.now()});
+        addLog(`Responden ${n} berhasil mengirim data ke Cloud.`);
+        updateStorage();
+        
+        alert("Berhasil! Data telah tersimpan di Google Sheets.");
+        location.reload();
+    } catch (error) {
+        console.error('Error!', error.message);
+        alert("Terjadi kesalahan saat mengirim ke Google Sheets.");
+    }
+}
+        function renderTable(f) {
+            const b = document.getElementById('table-body'); b.innerHTML = "";
+            let data = f === 'Semua' ? bookings : bookings.filter(x => x.lokasi === f);
+            data.forEach(x => {
+                b.innerHTML += `<tr><td>${x.nama}</td><td>${x.instansi}</td><td>${x.acara}</td><td>${x.lokasi}</td><td>${x.tgl}</td>
+                <td><button class="btn btn-primary" onclick="openEdit(${x.id})">Edit</button><button class="btn btn-danger" onclick="hapus(${x.id})">Hapus</button></td></tr>`;
+            });
+        }
+
+        function doLogin() {
+            if(document.getElementById('l_user').value === admin.u && document.getElementById('l_pass').value === admin.p) {
+                closeAll(); document.getElementById('section-user').style.display='none'; document.getElementById('section-admin').style.display='block';
+                renderTable('Semua'); addLog("Admin Login.");
+            } else alert("Username/Password Salah!");
+        }
+
+        function hapus(id) {
+            if(confirm("Hapus data ini?")) {
+                bookings = bookings.filter(x => x.id !== id);
+                addLog("Admin menghapus data.");
+                updateStorage();
+                renderTable('Semua');
+            }
+        }
+
+        function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+        function closeAll() { document.querySelectorAll('.modal').forEach(m => m.style.display='none'); }
+        function showSection(s) { if(s === 'login') openModal('section-login'); else location.reload(); }
+        
+        window.onload = () => {
+            initCalendar();
+            document.getElementById('log-box').innerHTML = logs.join("<br>");
+        };
+    </script>
+</body>
+</html>
